@@ -23,9 +23,10 @@ type Config = {
 };
 
 export const config: Config = {
-  url: "https://www.builder.io/c/docs/developers",
-  match: "https://www.builder.io/c/docs/**",
-  selector: `.docs-builder-container`,
+  url: "https://www.wildberries.ru/catalog/zhenshchinam/odezhda/bluzki-i-rubashki?sort=popular&page=1&xsubject=1429",
+  match: "https://www.wildberries.ru/catalog/zhenshchinam/odezhda/bluzki-i-rubashki/**",
+  selector: `.product-card`,
   maxPagesToCrawl: 50,
   outputFileName: "output.json",
+  waitForSelectorTimeout: 8000
 };
