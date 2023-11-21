@@ -23,10 +23,17 @@ type Company = {
   parsedFrom: 'fromBreadcrumbs' | 'fromSidebar',
   url: string,
 };
+type SizeValue = {
+  value: number,
+  ci: 'cm'
+} | {
+  value: string,
+  ci: 'unknown'
+};
 type Size = {
-  length?: number,
-  width?: number,
-  height?: number,
+  length?: SizeValue,
+  width?: SizeValue,
+  height?: SizeValue,
 };
 type CategoryTrait = {
   // top category, e.g. "Женщинам"
@@ -45,8 +52,8 @@ type WildberriesProductPageResult = {
   price: number,
   rating: number | null,
   ratingCount: number | null,
-  company?: Company,
-  sizes?: Size,
+  company: Company | null,
+  sizes: Size | null,
 };
 
 const wildberriesSelectors = {
@@ -62,6 +69,7 @@ const wildberriesProductSelectors = {
   price: ".product-page__aside-container .price-block__final-price",
   rating: ".product-page__common-info .product-review__rating",
   ratingCount: ".product-page__common-info .product-review__count-review",
+  productParams: ".product-params__table",
 };
 const labels = {
   product: 'PRODUCT',
@@ -129,12 +137,46 @@ async function scrapProduct(page: Page): Promise<WildberriesProductPageResult> {
     throw new Error(`Rating count not found on ${page.url()}`);
   }
   const ratingCount = parseInt(ratingCountRaw.replace(/[^\d]/g, ''), 10) || null;
+  const productTables = await page.locator(wildberriesProductSelectors.productParams).filter({hasText: "Габариты"});
+  const table = await productTables.count() ? await productTables.locator('tbody') : null;
+  const productParamsRaw = table ? await table.evaluate((tbody) => {
+    const results: Array<{param: string, value: string}> = [];
+    for (const el of tbody.children) {
+      if (!el.firstChild || !el.lastChild) {
+        continue;
+      }
+      const th = el.firstChild.textContent;
+      const td = el.lastChild.textContent;
+      if (!th || !td) {
+        continue;
+      }
+      results.push({param: th.trim().toLowerCase(), value: td.trim().toLowerCase()});
+    }
+    return results;
+  }) : [];
+  const sizes = productParamsRaw.length ? productParamsRaw.reduce((acc, item) => {
+    if (item.param.includes('длина')) {
+      acc.length = item.value.endsWith('см')
+        ? {value: parseInt(item.value, 10), ci: 'cm'}
+        : {value: item.value, ci: 'unknown'};
+    } else if (item.param.includes('высота')) {
+      acc.height = item.value.endsWith('см')
+        ? {value: parseInt(item.value, 10), ci: 'cm'}
+        : {value: item.value, ci: 'unknown'};
+    } else if (item.param.includes('ширина')) {
+      acc.width = item.value.endsWith('см')
+        ? {value: parseInt(item.value, 10), ci: 'cm'}
+        : {value: item.value, ci: 'unknown'};
+    }
+    return acc;
+  }, {} as Size) : null;
   return {
     title,
     price,
     company,
     rating,
     ratingCount,
+    sizes
   };
 }
 
