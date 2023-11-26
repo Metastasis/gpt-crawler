@@ -18,14 +18,17 @@ type Config = {
     page: Page;
     pushData: (data: any) => Promise<void>;
   }) => Promise<void>;
-    /** Optional timeout for waiting for a selector to appear */
+  /** Optional timeout for waiting for a selector to appear */
   waitForSelectorTimeout?: number;
+  /** Menu categories to exclude from scraping */
+  excludedCategories?: string;
 };
 
 export const config: Config = {
-  url: "https://www.wildberries.ru/catalog/zhenshchinam/odezhda/bluzki-i-rubashki?sort=popular&page=1&xsubject=1429",
-  match: "https://www.wildberries.ru/catalog/zhenshchinam/odezhda/bluzki-i-rubashki/**",
+  url: "https://www.wildberries.ru",
+  match: "https://www.wildberries.ru/catalog/**",
   selector: `.product-card`,
+  excludedCategories: '(пятница|новый.год|акции|цифровые.товары|путешествия|сделано.в.москве|premium|премиум|спорт)',
   maxPagesToCrawl: 50,
   outputFileName: "output.json",
   waitForSelectorTimeout: 8000

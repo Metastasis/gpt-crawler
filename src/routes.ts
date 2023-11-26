@@ -73,8 +73,17 @@ const wildberriesProductSelectors = {
   ratingCount: ".product-page__common-info .product-review__count-review",
   productParams: ".product-params__table",
 };
+const wildberriesMainPageSelectors = {
+  menuButton: '.nav-element__burger',
+  menuList: '.menu-burger__main-list',
+};
+const wildberriesCategoryPageSelectors = {
+  categoriesLinks: '.menu-catalog__list-2',
+};
 const labels = {
-  product: 'PRODUCT',
+  product: 'product',
+  categoryPage: 'categoryPage',
+  subCategoryPage: 'subCategoryPage',
 } as const;
 
 async function scrapProduct(page: Page): Promise<WildberriesProductPageResult> {
@@ -196,7 +205,7 @@ async function getPageHtml(page: Page): Promise<WildberriesCategoryPageResult> {
   };
 }
 
-router.addDefaultHandler(async ({request, page, log, pushData, enqueueLinks}) => {
+router.addHandler(labels.subCategoryPage, async ({ request, page, log, pushData, enqueueLinks }) => {
   const titleRaw = await page.locator(wildberriesSelectors.categoryTitle).textContent();
   const title = titleRaw ? titleRaw.trim().toLowerCase() : null;
 
@@ -219,6 +228,73 @@ router.addDefaultHandler(async ({request, page, log, pushData, enqueueLinks}) =>
       category: data.category,
       subcategory: data.subcategory,
       goodsCategory: data.goodsCategory,
+    }
+  });
+});
+type CategoryUserData = {
+  parentLinks: Record<string, {href: string, title: string}>
+};
+router.addHandler(labels.categoryPage, async ({ request, page, log, pushData }) => {
+  log.info(`Crawling ${page.url()}...`);
+  const data: CategoryUserData = request.userData as any;
+  const parentLinks = data.parentLinks;
+  const currentUrl = new URL(page.url());
+  const currentLink = parentLinks[currentUrl.href];
+  if (!currentLink) {
+    throw new Error(`Current link not found in parent links: ${currentUrl}`);
+  }
+  await page.waitForSelector(config.selector, {
+    timeout: config.waitForSelectorTimeout ?? 1000,
+  });
+  const categoriesLinks = await page.locator(wildberriesCategoryPageSelectors.categoriesLinks);
+  const links = await categoriesLinks.evaluate((el) => {
+    const urls: Array<{href: string, title: string}> = [];
+    for (const node of el.children) {
+      const link = node.querySelector("a");
+      if (link && link.href) {
+        urls.push({href: (new URL(link.href)).href, title: link.innerText.trim()});
+      }
+    }
+    return urls;
+  });
+  await pushData({ parent: currentLink, children: links });
+  // await enqueueLinks({
+  //   urls: links.map((item) => item.href),
+  //   userData: {
+  //     links: { parent: currentLink, children: links }
+  //   }
+  // });
+});
+
+router.addDefaultHandler(async ({page, enqueueLinks}) => {
+  await page.waitForSelector(config.selector, {
+    timeout: config.waitForSelectorTimeout ?? 1000,
+  });
+  const menuButton = await page.locator(wildberriesMainPageSelectors.menuButton);
+  await menuButton.click();
+  const menuList = await page.locator(wildberriesMainPageSelectors.menuList);
+  const links = await menuList.evaluate((el) => {
+    const urls: Array<{href: string, title: string}> = [];
+    for (const node of el.children) {
+      const link = node.querySelector("a");
+      if (link && link.href) {
+        urls.push({href: (new URL(link.href)).href, title: link.innerText.trim()});
+      }
+    }
+    return urls;
+  });
+  const re = config.excludedCategories ? new RegExp(config.excludedCategories, 'i') : null;
+  const filteredLinks = re ? links.filter((item) => {
+    return !re.test(item.title);
+  }) : links;
+  await enqueueLinks({
+    urls: filteredLinks.map((item) => item.href),
+    label: labels.categoryPage,
+    userData: {
+      parentLinks: filteredLinks.reduce((acc, item) => {
+        acc[item.href] = item;
+        return acc;
+      }, {} as Record<string, any>)
     }
   });
 });
