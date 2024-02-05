@@ -18,14 +18,18 @@ type Config = {
     page: Page;
     pushData: (data: any) => Promise<void>;
   }) => Promise<void>;
-    /** Optional timeout for waiting for a selector to appear */
+  /** Optional timeout for waiting for a selector to appear */
   waitForSelectorTimeout?: number;
+  /** Menu categories to exclude from scraping */
+  excludedCategories?: string;
 };
 
 export const config: Config = {
-  url: "https://www.builder.io/c/docs/developers",
-  match: "https://www.builder.io/c/docs/**",
-  selector: `.docs-builder-container`,
+  url: "https://www.wildberries.ru",
+  match: "https://www.wildberries.ru/catalog/**",
+  selector: `.product-card`,
+  excludedCategories: '(пятница|новый.год|акции|цифровые.товары|путешествия|сделано.в.москве|premium|премиум|спорт)',
   maxPagesToCrawl: 50,
   outputFileName: "output.json",
+  waitForSelectorTimeout: 8000
 };
